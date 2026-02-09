@@ -3,7 +3,7 @@
 即梦 AI 免费 API 服务 - 支持文生图、图生图、视频生成的 OpenAI 兼容接口
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-v0.7.0-green.svg)
+![Version](https://img.shields.io/badge/version-v0.7.1-green.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)
 ![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
 
@@ -81,7 +81,7 @@ docker run -it -d --init --name jimeng-free-api-all \
 
 ```bash
 # 克隆项目
-git clone https://github.com/zhizinan1997/jimeng-free-api-all.git
+git clone https://github.com/wwwzhouhui/jimeng-free-api-all.git
 
 # 进入目录
 cd jimeng-free-api-all
@@ -100,7 +100,7 @@ docker run -it -d --init --name jimeng-free-api-all \
 
 ```bash
 # 克隆项目
-git clone https://github.com/zhizinan1997/jimeng-free-api-all.git
+git clone https://github.com/wwwzhouhui/jimeng-free-api-all.git
 
 # 进入目录
 cd jimeng-free-api-all
@@ -349,7 +349,7 @@ jimeng-free-api-all/
 
 ```bash
 # 克隆项目
-git clone https://github.com/zhizinan1997/jimeng-free-api-all.git
+git clone https://github.com/wwwzhouhui/jimeng-free-api-all.git
 cd jimeng-free-api-all
 
 # 安装依赖
@@ -427,6 +427,13 @@ Authorization: Bearer sessionid1,sessionid2,sessionid3
 
 ## 更新日志
 
+### v0.7.1 (2026-02-09) - 修复视频生成返回高清下载URL
+
+- 🐛 **修复视频返回低码率预览URL的问题**：视频生成接口（含 Seedance 2.0）之前返回的是 `vlabvod.com` 低码率预览URL（bitrate ~1152），现在通过 `get_local_item_list` API 获取 `dreamnia.jimeng.com` 高码率下载URL（bitrate ~6297+）
+- 🐛 **修复 Seedance 轮询响应解析失败**：`get_history_by_ids` API 返回数据以 historyId 为键（如 `result["8918159809292"]`），而非 `result.history_list` 数组，导致轮询循环无法正确解析响应，视频生成后客户端请求无返回
+- 🐛 **修复普通视频轮询响应解析**：`generateVideo` 函数增加 `result[historyId]` 回退解析，兼容 historyId 键值格式的API响应
+- 🐛 **修复 item_id 提取字段名**：API 返回的视频项目 ID 位于 `common_attr.id` 字段，补充该字段到提取链中
+
 ### v0.7.0 (2026-02-07) - Seedance 2.0 多图智能视频生成
 
 - ✨ **新增 Seedance 2.0 模型**：支持多张图片混合生成视频
@@ -494,4 +501,4 @@ Authorization: Bearer sessionid1,sessionid2,sessionid3
 
 如果觉得项目不错，欢迎点个 Star ⭐
 
-[![Star History Chart](https://api.star-history.com/svg?repos=zhizinan1997/jimeng-free-api-all&type=Date)](https://star-history.com/#zhizinan1997/jimeng-free-api-all&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=wwwzhouhui/jimeng-free-api-all&type=Date)](https://star-history.com/#wwwzhouhui/jimeng-free-api-all&Date)

@@ -587,6 +587,77 @@ async function uploadImageBufferForVideo(buffer: Buffer, refreshToken: string): 
 }
 
 /**
+ * 通过 get_local_item_list API 获取高质量视频下载URL
+ * 浏览器下载视频时使用此API获取高码率版本（~6297 vs 预览版 ~1152）
+ *
+ * @param itemId 视频项目ID
+ * @param refreshToken 刷新令牌
+ * @returns 高质量视频URL，失败时返回 null
+ */
+async function fetchHighQualityVideoUrl(itemId: string, refreshToken: string): Promise<string | null> {
+  try {
+    logger.info(`尝试获取高质量视频下载URL，item_id: ${itemId}`);
+
+    const result = await request("post", "/mweb/v1/get_local_item_list", refreshToken, {
+      data: {
+        item_id_list: [itemId],
+        pack_item_opt: {
+          scene: 1,
+          need_data_integrity: true,
+        },
+        is_for_video_download: true,
+      },
+    });
+
+    const responseStr = JSON.stringify(result);
+    logger.info(`get_local_item_list 响应大小: ${responseStr.length} 字符`);
+
+    // 策略1: 从结构化字段中提取视频URL
+    const itemList = result.item_list || result.local_item_list || [];
+    if (itemList.length > 0) {
+      const item = itemList[0];
+      const videoUrl =
+        item?.video?.transcoded_video?.origin?.video_url ||
+        item?.video?.download_url ||
+        item?.video?.play_url ||
+        item?.video?.url;
+
+      if (videoUrl) {
+        logger.info(`从get_local_item_list结构化字段获取到高清视频URL: ${videoUrl}`);
+        return videoUrl;
+      }
+    }
+
+    // 策略2: 正则匹配 dreamnia.jimeng.com 高质量URL
+    const hqUrlMatch = responseStr.match(/https:\/\/v[0-9]+-dreamnia\.jimeng\.com\/[^"\s\\]+/);
+    if (hqUrlMatch && hqUrlMatch[0]) {
+      logger.info(`正则提取到高质量视频URL (dreamnia): ${hqUrlMatch[0]}`);
+      return hqUrlMatch[0];
+    }
+
+    // 策略3: 匹配任何 jimeng.com 域名的视频URL
+    const jimengUrlMatch = responseStr.match(/https:\/\/v[0-9]+-[^"\\]*\.jimeng\.com\/[^"\s\\]+/);
+    if (jimengUrlMatch && jimengUrlMatch[0]) {
+      logger.info(`正则提取到jimeng视频URL: ${jimengUrlMatch[0]}`);
+      return jimengUrlMatch[0];
+    }
+
+    // 策略4: 匹配任何视频URL（兜底）
+    const anyVideoUrlMatch = responseStr.match(/https:\/\/v[0-9]+-[^"\\]*\.(vlabvod|jimeng)\.com\/[^"\s\\]+/);
+    if (anyVideoUrlMatch && anyVideoUrlMatch[0]) {
+      logger.info(`从get_local_item_list提取到视频URL: ${anyVideoUrlMatch[0]}`);
+      return anyVideoUrlMatch[0];
+    }
+
+    logger.warn(`未能从get_local_item_list响应中提取到视频URL`);
+    return null;
+  } catch (error) {
+    logger.warn(`获取高质量视频下载URL失败: ${error.message}`);
+    return null;
+  }
+}
+
+/**
  * 生成视频
  *
  * @param _model 模型名称
@@ -931,16 +1002,7 @@ export async function generateVideo(
         result = await request("post", "/mweb/v1/get_history_records", refreshToken, {
           data: alternativeRequestData,
         });
-        logger.info(`备用API响应: ${JSON.stringify(result)}`);
-        
-        // 尝试直接从响应中提取视频URL
-        const responseStr = JSON.stringify(result);
-        const videoUrlMatch = responseStr.match(/https:\/\/v[0-9]+-artist\.vlabvod\.com\/[^"\s]+/);
-        if (videoUrlMatch && videoUrlMatch[0]) {
-          logger.info(`从备用API响应中直接提取到视频URL: ${videoUrlMatch[0]}`);
-          // 提前返回找到的URL
-          return videoUrlMatch[0];
-        }
+        logger.info(`备用API响应摘要: ${JSON.stringify(result).substring(0, 500)}...`);
       } else {
         // 标准API请求方式
         logger.info(`发送请求获取视频生成结果，URL: ${requestUrl}, 历史ID: ${historyId}, 重试次数: ${retryCount + 1}/${maxRetries}`);
@@ -949,14 +1011,6 @@ export async function generateVideo(
         });
         const responseStr = JSON.stringify(result);
         logger.info(`标准API响应摘要: ${responseStr.substring(0, 300)}...`);
-        
-        // 尝试直接从响应中提取视频URL
-        const videoUrlMatch = responseStr.match(/https:\/\/v[0-9]+-artist\.vlabvod\.com\/[^"\s]+/);
-        if (videoUrlMatch && videoUrlMatch[0]) {
-          logger.info(`从标准API响应中直接提取到视频URL: ${videoUrlMatch[0]}`);
-          // 提前返回找到的URL
-          return videoUrlMatch[0];
-        }
       }
       
 
@@ -971,11 +1025,15 @@ export async function generateVideo(
         // 处理标准API返回的数据格式
         historyData = result.history_list[0];
         logger.info(`从标准API获取到历史记录`);
+      } else if (result[historyId]) {
+        // get_history_by_ids 返回数据以 historyId 为键（如 result["8918159809292"]）
+        historyData = result[historyId];
+        logger.info(`从historyId键获取到历史记录`);
       } else {
-        // 两种API都没有返回有效数据
+        // 所有API都没有返回有效数据
         logger.warn(`历史记录不存在，重试中 (${retryCount + 1}/${maxRetries})... 历史ID: ${historyId}`);
         logger.info(`请同时在即梦官网检查视频是否已生成: https://jimeng.jianying.com/ai-tool/video/generate`);
-        
+
         retryCount++;
         // 增加重试间隔时间，但设置上限为30秒
         const waitTime = Math.min(2000 * (retryCount + 1), 30000);
@@ -1039,7 +1097,27 @@ export async function generateVideo(
     throw error;
   }
 
-  // 提取视频URL
+  // 尝试通过 get_local_item_list 获取高质量视频下载URL
+  const itemId = item_list?.[0]?.item_id
+    || item_list?.[0]?.id
+    || item_list?.[0]?.local_item_id
+    || item_list?.[0]?.common_attr?.id;
+
+  if (itemId) {
+    try {
+      const hqVideoUrl = await fetchHighQualityVideoUrl(String(itemId), refreshToken);
+      if (hqVideoUrl) {
+        logger.info(`视频生成成功（高质量），URL: ${hqVideoUrl}`);
+        return hqVideoUrl;
+      }
+    } catch (error) {
+      logger.warn(`获取高质量视频URL失败，将使用预览URL作为回退: ${error.message}`);
+    }
+  } else {
+    logger.warn(`未能从item_list中提取item_id，将使用预览URL。item_list[0]键: ${item_list?.[0] ? Object.keys(item_list[0]).join(', ') : '无'}`);
+  }
+
+  // 回退：提取预览视频URL
   let videoUrl = item_list?.[0]?.video?.transcoded_video?.origin?.video_url;
   
   // 如果通过常规路径无法获取视频URL，尝试其他可能的路径
@@ -1338,22 +1416,19 @@ export async function generateSeedanceVideo(
         data: { history_ids: [historyId] },
       });
 
-      // 尝试直接提取视频URL
       const responseStr = JSON.stringify(result);
-      const videoUrlMatch = responseStr.match(/https:\/\/v[0-9]+-artist\.vlabvod\.com\/[^"\s]+/);
-      if (videoUrlMatch && videoUrlMatch[0]) {
-        logger.info(`Seedance: 提取到视频URL: ${videoUrlMatch[0]}`);
-        return videoUrlMatch[0];
-      }
+      logger.info(`Seedance: 轮询响应摘要: ${responseStr.substring(0, 300)}...`);
 
-      if (!result.history_list || result.history_list.length === 0) {
+      // get_history_by_ids 返回的数据可能以 historyId 为键（如 result["8918159809292"]），
+      // 也可能在 result.history_list 数组中
+      let historyData = result.history_list?.[0] || result[historyId];
+
+      if (!historyData) {
         retryCount++;
         const waitTime = Math.min(2000 * (retryCount + 1), 30000);
         await new Promise((resolve) => setTimeout(resolve, waitTime));
         continue;
       }
-
-      const historyData = result.history_list[0];
       status = historyData.status;
       failCode = historyData.fail_code;
       item_list = historyData.item_list || [];
@@ -1388,7 +1463,27 @@ export async function generateSeedanceVideo(
     throw error;
   }
 
-  // 提取视频URL
+  // 尝试通过 get_local_item_list 获取高质量视频下载URL
+  const seedanceItemId = item_list?.[0]?.item_id
+    || item_list?.[0]?.id
+    || item_list?.[0]?.local_item_id
+    || item_list?.[0]?.common_attr?.id;
+
+  if (seedanceItemId) {
+    try {
+      const hqVideoUrl = await fetchHighQualityVideoUrl(String(seedanceItemId), refreshToken);
+      if (hqVideoUrl) {
+        logger.info(`Seedance: 视频生成成功（高质量），URL: ${hqVideoUrl}`);
+        return hqVideoUrl;
+      }
+    } catch (error) {
+      logger.warn(`Seedance: 获取高质量视频URL失败，将使用预览URL作为回退: ${error.message}`);
+    }
+  } else {
+    logger.warn(`Seedance: 未能从item_list中提取item_id，将使用预览URL。item_list[0]键: ${item_list?.[0] ? Object.keys(item_list[0]).join(', ') : '无'}`);
+  }
+
+  // 回退：提取预览视频URL
   let videoUrl = item_list?.[0]?.video?.transcoded_video?.origin?.video_url
     || item_list?.[0]?.video?.play_url
     || item_list?.[0]?.video?.download_url
