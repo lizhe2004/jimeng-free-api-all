@@ -35,12 +35,12 @@ export default {
                     // 对于 multipart/form-data，允许字符串类型的数字
                     if (isMultiPart && typeof v === 'string') {
                         const num = parseInt(v);
-                        // Seedance 支持 4 秒，普通视频支持 5 或 10 秒
-                        return num === 4 || num === 5 || num === 10;
+                        // Seedance 支持 4-15 秒连续范围，普通视频支持 5 或 10 秒
+                        return (num >= 4 && num <= 15) || num === 5 || num === 10;
                     }
                     // 对于 JSON，要求数字类型
-                    // Seedance 支持 4 秒，普通视频支持 5 或 10 秒
-                    return _.isFinite(v) && (v === 4 || v === 5 || v === 10);
+                    // Seedance 支持 4-15 秒连续范围，普通视频支持 5 或 10 秒
+                    return _.isFinite(v) && ((v >= 4 && v <= 15) || v === 5 || v === 10);
                 })
                 .validate('body.file_paths', v => _.isUndefined(v) || _.isArray(v))
                 .validate('body.filePaths', v => _.isUndefined(v) || _.isArray(v))

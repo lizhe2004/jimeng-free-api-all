@@ -3,7 +3,7 @@
 即梦 AI 免费 API 服务 - 支持文生图、图生图、视频生成的 OpenAI 兼容接口
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-v0.8.0-green.svg)
+![Version](https://img.shields.io/badge/version-v0.8.2-green.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)
 ![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
 
@@ -13,14 +13,14 @@
 
 ### 项目概述
 
-Jimeng AI Free API 是一个逆向工程的 API 服务器，将即梦 AI（Jimeng AI）的图像和视频生成能力封装为 OpenAI 兼容的 API 接口。支持最新的 **jimeng-5.0-preview**、**jimeng-4.6** 文生图模型、**Seedance 2.0 多图智能视频生成**，零配置部署，多路 token 支持。
+Jimeng AI Free API 是一个逆向工程的 API 服务器，将即梦 AI（Jimeng AI）的图像和视频生成能力封装为 OpenAI 兼容的 API 接口。支持最新的 **jimeng-5.0-preview**、**jimeng-4.6** 文生图模型、**Seedance 2.0 多图智能视频生成**（模型名 `jimeng-video-seedance-2.0`）及 **Seedance 2.0-fast 快速版**（模型名 `jimeng-video-seedance-2.0-fast`），零配置部署，多路 token 支持。
 
 ### 核心功能
 
 - 🖼️ **文生图**：支持 jimeng-5.0-preview、jimeng-4.6、jimeng-4.5 等多款模型，最高 4K 分辨率
 - 🎭 **图生图**：多图合成，支持 1-10 张输入图片
 - 🎬 **视频生成**：jimeng-video-3.5-pro 等模型，支持首帧/尾帧控制
-- 🌊 **Seedance 2.0**：多图智能视频生成，支持 @1、@2 占位符引用图片
+- 🌊 **Seedance 2.0 / 2.0-fast**：多图智能视频生成，支持 @1、@2 占位符引用图片，fast 版本生成更快
 - 🔗 **OpenAI 兼容**：完全兼容 OpenAI API 格式，无缝对接现有客户端
 - 🔄 **多账号支持**：支持多个 sessionid 轮询使用
 
@@ -41,7 +41,8 @@ Jimeng AI Free API 是一个逆向工程的 API 服务器，将即梦 AI（Jimen
 | 图生图 | 多图合成生成新图片 | jimeng-5.0-preview, jimeng-4.6, jimeng-4.5 等 | ✅ 可用 |
 | 文生视频 | 根据文本描述生成视频 | jimeng-video-3.5-pro 等 | ✅ 可用 |
 | 图生视频 | 使用首帧/尾帧图片生成视频 | jimeng-video-3.0 等 | ✅ 可用 |
-| 多图智能视频 | Seedance 2.0 多图混合生成 | seedance-2.0, seedance-2.0-pro | ✅ 可用 |
+| 多图智能视频 | Seedance 2.0 多图混合生成 | jimeng-video-seedance-2.0, seedance-2.0 | ✅ 可用 |
+| 多图快速视频 | Seedance 2.0-fast 快速生成 | jimeng-video-seedance-2.0-fast, seedance-2.0-fast | ✅ 可用 |
 | Chat 接口 | OpenAI 兼容的对话接口 | 所有模型 | ✅ 可用 |
 
 ## 免责声明
@@ -182,12 +183,24 @@ curl -X POST http://localhost:8000/v1/videos/generations \
 ```bash
 curl -X POST http://localhost:8000/v1/videos/generations \
   -H "Authorization: Bearer your_sessionid" \
-  -F "model=seedance-2.0" \
+  -F "model=jimeng-video-seedance-2.0" \
   -F "prompt=@1 和 @2 两人开始跳舞" \
   -F "ratio=4:3" \
   -F "duration=4" \
   -F "files=@/path/to/image1.jpg" \
   -F "files=@/path/to/image2.jpg"
+```
+
+**Seedance 2.0-fast 快速视频示例：**
+
+```bash
+curl -X POST http://localhost:8000/v1/videos/generations \
+  -H "Authorization: Bearer your_sessionid" \
+  -F "model=jimeng-video-seedance-2.0-fast" \
+  -F "prompt=@1 图片中的人物开始微笑" \
+  -F "ratio=4:3" \
+  -F "duration=5" \
+  -F "files=@/path/to/image1.jpg"
 ```
 
 ## 项目结构
@@ -254,8 +267,11 @@ jimeng-free-api-all/
 | `jimeng-video-3.0-pro` | - | 视频生成 3.0 专业版 |
 | `jimeng-video-2.0` | - | 视频生成 2.0 |
 | `jimeng-video-2.0-pro` | - | 视频生成 2.0 专业版 |
-| `seedance-2.0` | `dreamina_seedance_40_pro` | 多图智能视频生成 |
-| `seedance-2.0-pro` | `dreamina_seedance_40_pro` | 多图智能视频生成专业版 |
+| `jimeng-video-seedance-2.0` | `dreamina_seedance_40_pro` | Seedance 2.0（上游标准名称，推荐） |
+| `seedance-2.0` | `dreamina_seedance_40_pro` | Seedance 2.0（向后兼容别名） |
+| `seedance-2.0-pro` | `dreamina_seedance_40_pro` | Seedance 2.0（向后兼容别名） |
+| `jimeng-video-seedance-2.0-fast` | `dreamina_seedance_40` | Seedance 2.0-fast 快速版（上游标准名称） |
+| `seedance-2.0-fast` | `dreamina_seedance_40` | Seedance 2.0-fast 快速版（向后兼容别名） |
 
 ### 分辨率支持
 
@@ -313,19 +329,19 @@ jimeng-free-api-all/
 | prompt | string | 是 | - | 视频描述 |
 | ratio | string | 否 | 1:1 | 宽高比 |
 | resolution | string | 否 | 720p | 分辨率：480p, 720p, 1080p |
-| duration | number | 否 | 5 | 时长：5 或 10 秒 |
+| duration | number | 否 | 5 | 时长：4-15 秒（Seedance）、5 或 10 秒（普通） |
 | file_paths | array | 否 | [] | 首帧/尾帧图片URL |
 
-### Seedance 2.0 接口
+### Seedance 2.0 / 2.0-fast 接口
 
 **POST /v1/videos/generations**
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| model | string | 是 | - | seedance-2.0 或 seedance-2.0-pro |
+| model | string | 是 | - | jimeng-video-seedance-2.0（推荐）、jimeng-video-seedance-2.0-fast（快速版）或 seedance-2.0 |
 | prompt | string | 否 | - | 提示词，使用 @1、@2 引用图片 |
 | ratio | string | 否 | 4:3 | 宽高比 |
-| duration | number | 否 | 4 | 视频时长（秒） |
+| duration | number | 否 | 4 | 视频时长 4-15 秒 |
 | files | file[] | 是* | - | 上传的图片（multipart） |
 | file_paths | array | 是* | - | 图片URL数组（JSON） |
 
@@ -428,6 +444,19 @@ Authorization: Bearer sessionid1,sessionid2,sessionid3
 </details>
 
 ## 更新日志
+
+### v0.8.2 (2026-02-13) - 新增 Seedance 2.0-fast 快速视频生成模型
+
+- ✨ **新增 `jimeng-video-seedance-2.0-fast` 模型**：Seedance 2.0 快速版，内部模型为 `dreamina_seedance_40`，生成速度更快
+- ✨ **新增 `seedance-2.0-fast` 别名**：向后兼容别名
+- 🔧 **新增 fast 版 benefit_type**：`dreamina_video_seedance_20_fast`，区分标准版与快速版
+- 🔧 **优化 Seedance 模型识别**：`isSeedanceModel` 函数改用前缀匹配，自动兼容后续新增的 Seedance 变体
+
+### v0.8.1 (2026-02-10) - Seedance 2.0 模型名更新
+
+- 🔄 **新增 `jimeng-video-seedance-2.0` 模型名**：原 `seedance-2.0`、`seedance-2.0-pro` 保留为向后兼容别名
+- ⏱️ **扩展 Seedance 时长支持**：从固定 4 秒扩展为 4-15 秒连续范围
+- 🔧 **更新 Draft 版本**：Seedance 模型 Draft 版本从 `3.3.9` 调整为 `3.3.8`
 
 ### v0.8.0 (2026-02-09) - 新增 jimeng-5.0-preview 和 jimeng-4.6 图像生成模型
 
