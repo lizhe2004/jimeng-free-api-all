@@ -6,7 +6,7 @@
 
 即梦 AI 免费 API 服务 - 逆向工程的 API 服务器，提供 OpenAI 兼容接口，封装即梦 AI 的图像和视频生成能力。
 
-**版本：** v0.8.2
+**版本：** v0.8.4
 
 **核心功能：**
 - 文生图：支持 jimeng-5.0-preview、jimeng-4.6、jimeng-4.5 等多款模型，最高 4K 分辨率
@@ -21,6 +21,9 @@
 ```bash
 # 安装依赖
 npm install
+
+# 安装 Chromium 浏览器（Seedance 模型需要）
+npx playwright-core install chromium --with-deps
 
 # 开发模式（热重载）
 npm run dev
@@ -71,6 +74,7 @@ src/
 │       └── exceptions.ts       # API 异常定义
 └── lib/
     ├── server.ts              # Koa 服务器配置（含中间件栈）
+    ├── browser-service.ts     # 浏览器代理服务（Seedance shark 反爬绕过）
     ├── config.ts              # 配置管理
     ├── logger.ts              # 日志工具
     ├── util.ts                # 辅助工具函数
@@ -185,6 +189,14 @@ src/
 - Draft 版本：3.3.9
 - 时长范围：4-15 秒（连续范围，与上游 iptag/jimeng-api 一致）
 - 提示词占位符：`@1`、`@2`、`@图1`、`@图2`、`@image1`、`@image2` 引用上传的图片
+
+### Shark 反爬与浏览器代理（v0.8.4）
+- 即梦对 Seedance 的 `/mweb/v1/aigc_draft/generate` 接口启用了 shark 安全中间件，要求请求携带 `a_bogus` 签名
+- `a_bogus` 由字节跳动 `bdms` SDK 在浏览器中生成，依赖真实浏览器环境（Canvas, WebGL, DOM），Node.js 无法直接运行
+- 解决方案：通过 `BrowserService`（`src/lib/browser-service.ts`）使用 Playwright 启动 headless Chromium，`bdms` SDK 自动拦截 `fetch` 并注入 `a_bogus`
+- 仅 Seedance 的 generate 请求走浏览器代理，其他请求继续用 Node.js `axios`
+- 浏览器懒启动，首次 Seedance 请求时创建；每个 sessionId 独立会话；10 分钟空闲自动清理
+- 资源拦截：屏蔽图片/字体/CSS，仅允许 bdms SDK 相关脚本（白名单域名：`vlabstatic.com`、`bytescm.com`、`jianying.com`、`byteimg.com`）
 
 ### 文件上传
 - 支持 multipart/form-data 文件上传

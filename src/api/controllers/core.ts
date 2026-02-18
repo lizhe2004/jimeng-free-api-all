@@ -13,7 +13,7 @@ import util from "@/lib/util.ts";
 // 模型名称
 const MODEL_NAME = "jimeng";
 // 默认的AgentID
-const DEFAULT_ASSISTANT_ID = 513695;
+export const DEFAULT_ASSISTANT_ID = 513695;
 // 版本号
 const VERSION_CODE = "8.4.0";
 // 平台代码
@@ -21,9 +21,9 @@ const PLATFORM_CODE = "7";
 // 设备ID
 const DEVICE_ID = Math.random() * 999999999999999999 + 7000000000000000000;
 // WebID
-const WEB_ID = Math.random() * 999999999999999999 + 7000000000000000000;
+export const WEB_ID = Math.random() * 999999999999999999 + 7000000000000000000;
 // 用户ID
-const USER_ID = util.uuid(false);
+export const USER_ID = util.uuid(false);
 // 最大重试次数
 const MAX_RETRY_COUNT = 3;
 // 重试延迟
@@ -85,6 +85,24 @@ export function generateCookie(refreshToken: string) {
     `sessionid_ss=${refreshToken}`,
     `sid_tt=${refreshToken}`
   ].join("; ");
+}
+
+/**
+ * 获取浏览器格式的cookie数组（用于Playwright context.addCookies）
+ */
+export function getCookiesForBrowser(refreshToken: string) {
+  const domain = ".jianying.com";
+  return [
+    { name: "_tea_web_id", value: String(WEB_ID), domain, path: "/" },
+    { name: "is_staff_user", value: "false", domain, path: "/" },
+    { name: "store-region", value: "cn-gd", domain, path: "/" },
+    { name: "store-region-src", value: "uid", domain, path: "/" },
+    { name: "uid_tt", value: USER_ID, domain, path: "/" },
+    { name: "uid_tt_ss", value: USER_ID, domain, path: "/" },
+    { name: "sid_tt", value: refreshToken, domain, path: "/" },
+    { name: "sessionid", value: refreshToken, domain, path: "/" },
+    { name: "sessionid_ss", value: refreshToken, domain, path: "/" },
+  ];
 }
 
 /**

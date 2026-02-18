@@ -1,4 +1,5 @@
 import logger from './logger.js';
+import browserService from './browser-service.js';
 
 // 允许无限量的监听器
 process.setMaxListeners(Infinity);
@@ -20,9 +21,9 @@ process.on("exit", () => {
 // 进程被kill
 process.on("SIGTERM", () => {
     logger.warn("received kill signal");
-    process.exit(2);
+    browserService.close().finally(() => process.exit(2));
 });
 // Ctrl-C进程退出
 process.on("SIGINT", () => {
-    process.exit(0);
+    browserService.close().finally(() => process.exit(0));
 });

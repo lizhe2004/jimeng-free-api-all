@@ -3,7 +3,7 @@
 即梦 AI 免费 API 服务 - 支持文生图、图生图、视频生成的 OpenAI 兼容接口
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-v0.8.3-green.svg)
+![Version](https://img.shields.io/badge/version-v0.8.4-green.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)
 ![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
 
@@ -28,9 +28,10 @@ Jimeng AI Free API 是一个逆向工程的 API 服务器，将即梦 AI（Jimen
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
-| Node.js | ≥16.0.0 | 运行环境 |
+| Node.js | >=16.0.0 | 运行环境 |
 | TypeScript | ^5.0.0 | 开发语言 |
 | Koa | ^2.15.0 | Web 框架 |
+| Playwright | ^1.49.0 | 浏览器代理（Seedance 反爬绕过） |
 | Docker | latest | 容器化部署 |
 
 ## 功能清单
@@ -61,6 +62,7 @@ Jimeng AI Free API 是一个逆向工程的 API 服务器，将即梦 AI（Jimen
 
 - Node.js 16+
 - npm 或 yarn
+- Chromium 浏览器（Seedance 模型需要，通过 Playwright 自动管理）
 - Docker（可选）
 
 ### 方式一：Docker 部署（推荐）
@@ -108,6 +110,9 @@ cd jimeng-free-api-all
 
 # 安装依赖
 npm install
+
+# 安装 Chromium 浏览器（Seedance 模型需要）
+npx playwright-core install chromium --with-deps
 
 # 开发模式
 npm run dev
@@ -225,6 +230,7 @@ jimeng-free-api-all/
 │   │   └── consts/              # API 常量和异常
 │   └── lib/
 │       ├── server.ts            # Koa 服务器配置
+│       ├── browser-service.ts   # 浏览器代理服务（Seedance 反爬）
 │       ├── config.ts            # 配置管理
 │       ├── logger.ts            # 日志工具
 │       ├── util.ts              # 辅助工具
@@ -373,6 +379,9 @@ cd jimeng-free-api-all
 # 安装依赖
 npm install
 
+# 安装 Chromium 浏览器（首次开发需要）
+npx playwright-core install chromium --with-deps
+
 # 开发模式（热重载）
 npm run dev
 ```
@@ -443,7 +452,28 @@ Authorization: Bearer sessionid1,sessionid2,sessionid3
 
 </details>
 
+<details>
+<summary>Seedance 视频生成报 "shark not pass" 错误？</summary>
+
+该错误表示即梦的 shark 安全中间件拦截了请求。v0.8.4 已通过 Playwright 浏览器代理解决此问题。请确保：
+
+1. 已安装 Chromium 浏览器：`npx playwright-core install chromium --with-deps`
+2. Docker 用户请使用 v0.8.4 及以上版本的镜像，Dockerfile 已内置 Chromium 支持
+3. 首次 Seedance 请求会自动启动浏览器（约数秒），后续请求复用会话
+
+</details>
+
 ## 更新日志
+
+### v0.8.4 (2026-02-18) - 修复 Seedance "shark not pass" 反爬拦截
+
+- 🐛 **修复 Seedance 视频生成被 shark 安全中间件拦截**：即梦对 `/mweb/v1/aigc_draft/generate` 接口新增 `a_bogus` 签名校验，Node.js 直接请求返回 `ret=1019, "shark not pass"`
+- ✨ **新增 BrowserService 浏览器代理服务**：通过 Playwright 启动 headless Chromium，利用字节跳动 `bdms` SDK 在浏览器中自动注入 `a_bogus` 签名
+- 🔧 **仅 Seedance generate 请求走浏览器代理**：其他请求（图片生成、普通视频、上传、轮询、积分查询）不受影响，继续用 Node.js 直接请求
+- ⚡ **懒启动与会话复用**：首次 Seedance 请求才启动浏览器，每个 sessionId 独立会话，10 分钟空闲自动清理
+- 🔧 **资源优化**：浏览器屏蔽图片/字体/CSS 等无关资源，仅加载 bdms SDK 相关脚本（白名单域名：vlabstatic.com、bytescm.com、jianying.com）
+- 🐳 **Docker 支持更新**：Dockerfile 改用 `node:lts`（非 alpine），内置 Chromium 系统依赖和浏览器安装
+- 📦 **新增依赖**：`playwright-core ^1.49.0`
 
 ### v0.8.3 (2026-02-14) - 修复 Seedance 2.0-fast 积分扣减失败
 

@@ -5,8 +5,9 @@ import fs from "fs";
 import APIException from "@/lib/exceptions/APIException.ts";
 import EX from "@/api/consts/exceptions.ts";
 import util from "@/lib/util.ts";
-import { getCredit, receiveCredit, request } from "./core.ts";
+import { getCredit, receiveCredit, request, DEFAULT_ASSISTANT_ID as CORE_ASSISTANT_ID, WEB_ID, acquireToken } from "./core.ts";
 import logger from "@/lib/logger.ts";
+import browserService from "@/lib/browser-service.ts";
 
 const DEFAULT_ASSISTANT_ID = 513695;
 export const DEFAULT_MODEL = "jimeng-video-3.0";
@@ -1319,99 +1320,120 @@ export async function generateSeedanceVideo(
     }])
   });
 
-  // 构建 Seedance 2.0 专用请求
-  const { aigc_data } = await request(
-    "post",
-    "/mweb/v1/aigc_draft/generate",
-    refreshToken,
-    {
-      params: {
-        aigc_features: "app_lip_sync",
-        web_version: "7.5.0",
-        da_version: draftVersion,
+  // 构建 Seedance 2.0 专用请求（通过浏览器代理，绕过 shark a_bogus 检测）
+  const token = await acquireToken(refreshToken);
+  const generateQueryParams = new URLSearchParams({
+    aid: String(CORE_ASSISTANT_ID),
+    device_platform: "web",
+    region: "cn",
+    webId: String(WEB_ID),
+    da_version: draftVersion,
+    web_component_open_flag: "1",
+    web_version: "7.5.0",
+    aigc_features: "app_lip_sync",
+  });
+  const generateUrl = `https://jimeng.jianying.com/mweb/v1/aigc_draft/generate?${generateQueryParams.toString()}`;
+  const generateBody = {
+    extend: {
+      root_model: model,
+      m_video_commerce_info: {
+        benefit_type: benefitType,
+        resource_id: "generate_video",
+        resource_id_type: "str",
+        resource_sub_type: "aigc"
       },
-      data: {
-        extend: {
-          root_model: model,
-          m_video_commerce_info: {
-            benefit_type: benefitType,
-            resource_id: "generate_video",
-            resource_id_type: "str",
-            resource_sub_type: "aigc"
-          },
-          m_video_commerce_info_list: [{
-            benefit_type: benefitType,
-            resource_id: "generate_video",
-            resource_id_type: "str",
-            resource_sub_type: "aigc"
-          }]
-        },
-        submit_id: submitId,
-        metrics_extra: metricsExtra,
-        draft_content: JSON.stringify({
-          type: "draft",
+      m_video_commerce_info_list: [{
+        benefit_type: benefitType,
+        resource_id: "generate_video",
+        resource_id_type: "str",
+        resource_sub_type: "aigc"
+      }]
+    },
+    submit_id: submitId,
+    metrics_extra: metricsExtra,
+    draft_content: JSON.stringify({
+      type: "draft",
+      id: util.uuid(),
+      min_version: draftVersion,
+      min_features: ["AIGC_Video_UnifiedEdit"],
+      is_from_tsn: true,
+      version: draftVersion,
+      main_component_id: componentId,
+      component_list: [{
+        type: "video_base_component",
+        id: componentId,
+        min_version: "1.0.0",
+        aigc_mode: "workbench",
+        metadata: {
+          type: "",
           id: util.uuid(),
-          min_version: draftVersion,
-          min_features: ["AIGC_Video_UnifiedEdit"],
-          is_from_tsn: true,
-          version: draftVersion,
-          main_component_id: componentId,
-          component_list: [{
-            type: "video_base_component",
-            id: componentId,
-            min_version: "1.0.0",
-            aigc_mode: "workbench",
-            metadata: {
+          created_platform: 3,
+          created_platform_version: "",
+          created_time_in_ms: String(Date.now()),
+          created_did: ""
+        },
+        generate_type: "gen_video",
+        abilities: {
+          type: "",
+          id: util.uuid(),
+          gen_video: {
+            type: "",
+            id: util.uuid(),
+            text_to_video_params: {
               type: "",
               id: util.uuid(),
-              created_platform: 3,
-              created_platform_version: "",
-              created_time_in_ms: String(Date.now()),
-              created_did: ""
-            },
-            generate_type: "gen_video",
-            abilities: {
-              type: "",
-              id: util.uuid(),
-              gen_video: {
+              video_gen_inputs: [{
                 type: "",
                 id: util.uuid(),
-                text_to_video_params: {
+                min_version: draftVersion,
+                prompt: "",  // Seedance 2.0 prompt 在 meta_list 中
+                video_mode: 2,
+                fps: 24,
+                duration_ms: actualDuration * 1000,
+                idip_meta_list: [],
+                unified_edit_input: {
                   type: "",
                   id: util.uuid(),
-                  video_gen_inputs: [{
-                    type: "",
-                    id: util.uuid(),
-                    min_version: draftVersion,
-                    prompt: "",  // Seedance 2.0 prompt 在 meta_list 中
-                    video_mode: 2,
-                    fps: 24,
-                    duration_ms: actualDuration * 1000,
-                    idip_meta_list: [],
-                    unified_edit_input: {
-                      type: "",
-                      id: util.uuid(),
-                      material_list: materialList,
-                      meta_list: metaList
-                    }
-                  }],
-                  video_aspect_ratio: aspectRatio,
-                  seed: Math.floor(Math.random() * 1000000000),
-                  model_req_key: model,
-                  priority: 0
-                },
-                video_task_extra: metricsExtra
-              }
+                  material_list: materialList,
+                  meta_list: metaList
+                }
+              }],
+              video_aspect_ratio: aspectRatio,
+              seed: Math.floor(Math.random() * 1000000000),
+              model_req_key: model,
+              priority: 0
             },
-            process_type: 1
-          }]
-        }),
-        http_common_info: {
-          aid: DEFAULT_ASSISTANT_ID,
+            video_task_extra: metricsExtra
+          }
         },
-      },
+        process_type: 1
+      }]
+    }),
+    http_common_info: {
+      aid: CORE_ASSISTANT_ID,
+    },
+  };
+
+  logger.info(`Seedance: 通过浏览器代理发送 generate 请求...`);
+  const generateResult = await browserService.fetch(
+    token,
+    generateUrl,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(generateBody),
     }
   );
+
+  // 检查浏览器代理返回的结果
+  const { ret, errmsg, data: generateData } = generateResult;
+  if (ret !== undefined && Number(ret) !== 0) {
+    if (Number(ret) === 5000) {
+      throw new APIException(EX.API_IMAGE_GENERATION_INSUFFICIENT_POINTS, `[无法生成视频]: 即梦积分可能不足，${errmsg}`);
+    }
+    throw new APIException(EX.API_REQUEST_FAILED, `[请求jimeng失败]: ${errmsg}`);
+  }
+  const aigc_data = generateData?.aigc_data || generateResult.aigc_data;
 
   const historyId = aigc_data.history_record_id;
   if (!historyId)
