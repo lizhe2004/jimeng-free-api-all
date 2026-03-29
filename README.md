@@ -861,7 +861,7 @@ Authorization: Bearer sessionid1,sessionid2,sessionid3
 
 欢迎加入技术交流群，分享使用心得：
 
-![微信图片_20260321212115_179_292](https://mypicture-1258720957.cos.ap-nanjing.myqcloud.com/Screenshot_20260123_095617_com.tencent.mm.jpg)
+![image-20260329234446858](https://mypicture-1258720957.cos.ap-nanjing.myqcloud.com/Obsidian/image-20260329234446858.png)
 
 ## 作者联系
 
