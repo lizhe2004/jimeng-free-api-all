@@ -1052,7 +1052,7 @@ Authorization: Bearer sessionid1,sessionid2,sessionid3
 
 欢迎加入技术交流群，分享使用心得：
 
-![20260419225804_77_6](https://mypicture-1258720957.cos.ap-nanjing.myqcloud.com/Obsidian/20260419225804_77_6.jpg)
+![0e7290cb7126c4809438e3a6a1cec09c_compress](https://mypicture-1258720957.cos.ap-nanjing.myqcloud.com/0e7290cb7126c4809438e3a6a1cec09c_compress.jpg)
 
 ## 作者联系
 
